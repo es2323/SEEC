@@ -1,0 +1,32 @@
+# Ignore Node.js dependencies for the frontend
+node_modules/
+
+# Ignore Python virtual environment for the backend
+backend/venv/
+backend/.venv/
+
+# Ignore Django database file (SQLite by default)
+backend/db.sqlite3
+
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+
+# Ignore sensitive environment files
+.env
+
+# Ignore IDE-specific files
+.idea/
+backend/.idea/
+
+# Ignore macOS-specific files
+.DS_Store
+
+# Ignore Expo-specific build files
+.expo/
+dist/
+web-build/
+
+# Ignore npm/Yarn lock files (optional, include if you don't want to track them)
+package-lock.json
+yarn.lock
