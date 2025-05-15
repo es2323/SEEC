@@ -3,7 +3,7 @@ import * as FileSystem from 'expo-file-system';
 import Constants from 'expo-constants';
 
 // Base URL for our Django backend API, used for user signup and login.
-const API_URL = 'http://192.168.0.94:8000/api/';
+const API_URL = 'http://192.168.0.42:8000/api/';
 // URL for Google Cloud Vision API to perform OCR (text extraction from images), using the API key from app.json.
 const VISION_API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${Constants.expoConfig.extra.visionApiKey}`;
 
