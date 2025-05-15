@@ -2,6 +2,7 @@
 
 from django.urls import path
 from . import views
+from .views import UserLocation
 
 urlpatterns = [
     path('bus-routes/', views.BusRouteList.as_view(), name='bus-route-list'),
@@ -11,5 +12,7 @@ urlpatterns = [
     path('stop-times/', views.StopTimeList.as_view(), name='stop-time-list'),
     path('stop-times/<int:pk>/', views.StopTimeDetail.as_view(), name='stop-time-detail'),
     path('route-timetable/<int:pk>/', views.RouteTimetable.as_view(), name='route-timetable'),
+    path("user-location/", UserLocation.as_view(), name="user-location"),  
+
     # Add other URLs as needed
 ]

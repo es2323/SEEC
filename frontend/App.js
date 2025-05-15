@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SignUpScreen from './src/screens/SignUpScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ImageToSpeech from './src/screens/ImageToSpeech';
+import LocationScreen from './src/screens/LocationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -14,7 +15,9 @@ export default function App() {
                 <Stack.Screen name="SignUp" component={SignUpScreen} />
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="ImageToSpeech" component={ImageToSpeech} />
+                <Stack.Screen name="Location" component={LocationScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );
 }
+

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { loginUser } from '../api/api';
+import React, { useState } from "react";
+import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from "react-native";
+import { loginUser } from "../api/api";
+
 
 const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
@@ -10,11 +11,11 @@ const LoginScreen = ({ navigation }) => {
     const handleLogin = async () => {
         try {
             const response = await loginUser(email, password);
-            console.log('Login response:', response);
+            console.log("Login response:", response);
             setMessage(response.message);
-            setTimeout(() => navigation.navigate('ImageToSpeech'), 1000);
+            setTimeout(() => navigation.navigate("Location"), 1000);
         } catch (error) {
-            setMessage(error.error || 'Login failed');
+            setMessage(error.error || "Login failed");
         }
     };
 
@@ -36,14 +37,15 @@ const LoginScreen = ({ navigation }) => {
             />
             <Button title="Login" onPress={handleLogin} />
             <Text style={styles.message}>{message}</Text>
+            <Button title="Go to Location Screen" onPress={() => navigation.navigate("Location")} />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, justifyContent: 'center' },
+    container: { flex: 1, padding: 16, justifyContent: "center" },
     input: { borderWidth: 1, padding: 8, marginBottom: 16 },
-    message: { marginTop: 16, textAlign: 'center', color: 'green' },
+    message: { marginTop: 16, textAlign: "center", color: "green" },
 });
 
 export default LoginScreen;

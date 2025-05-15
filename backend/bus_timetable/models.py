@@ -12,6 +12,10 @@ class BusRoute(models.Model):
 class BusStop(models.Model):
     """Represents a bus stop."""
     stop_name = models.CharField(max_length=255, unique=True)
+    latitude = models.FloatField(default=52.9229)  # Derby Bus Station latitude
+    longitude = models.FloatField(default=-1.4773)  # Derby Bus Station longitude
+
+
 
     def __str__(self):
         return self.stop_name

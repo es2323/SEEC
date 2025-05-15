@@ -4,6 +4,33 @@ from rest_framework import generics
 from rest_framework.response import Response
 from .models import BusRoute, BusStop, Journey, StopTime
 from .serializers import BusRouteSerializer, BusStopSerializer, JourneySerializer, StopTimeSerializer
+from rest_framework.views import APIView
+
+
+class UserLocation(APIView):
+    """Find nearby bus stops based on user location."""
+
+    def get(self, request, *args, **kwargs):
+        return Response({"message": "Send a POST request with latitude and longitude."})
+
+    def post(self, request, *args, **kwargs):
+        latitude = request.data.get("latitude")
+        longitude = request.data.get("longitude")
+
+        if not latitude or not longitude:
+            return Response({"error": "Latitude and Longitude required"}, status=400)
+
+        nearby_stops = BusStop.objects.filter(
+            latitude__range=(latitude - 0.01, latitude + 0.01),
+            longitude__range=(longitude - 0.01, longitude + 0.01)
+        )
+
+        stops_data = [
+            {"stop_name": stop.stop_name, "latitude": stop.latitude, "longitude": stop.longitude}
+            for stop in nearby_stops
+        ]
+
+        return Response({"nearby_stops": stops_data})
 
 class BusRouteList(generics.ListAPIView):
     queryset = BusRoute.objects.all()
