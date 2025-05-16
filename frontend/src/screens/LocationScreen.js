@@ -3,6 +3,29 @@ import { View, Text, Button, StyleSheet, Dimensions } from "react-native";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 
+// Function to fetch nearby bus stops from OpenStreetMap Overpass API
+const fetchNearbyBusStops = async (latitude, longitude) => {
+  const radius = 500; // meters
+  const query = `
+    [out:json];
+    node
+      [highway=bus_stop]
+      (around:${radius},${latitude},${longitude});
+    out;
+  `;
+  const response = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `data=${encodeURIComponent(query)}`
+  });
+  const data = await response.json();
+  return data.elements.map(el => ({
+    stop_name: el.tags?.name || "Unnamed Stop",
+    latitude: el.lat,
+    longitude: el.lon
+  }));
+};
+
 const LocationScreen = () => {
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState(null);
@@ -30,31 +53,14 @@ const LocationScreen = () => {
     })();
   }, []);
 
-  const sendLocationToBackend = async () => {
+  // Fetch nearby bus stops from OpenStreetMap
+  const fetchStops = async () => {
     if (!location) return;
-
-    const locationData = {
-      latitude: location.latitude,
-      longitude: location.longitude
-    };
-
     try {
-      const response = await fetch("http://192.168.0.42:8000/api/user-location/", { // Adjust with your own IP address(SEEC members)
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(locationData),
-      });
-
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-        setNearbyStops(data.nearby_stops || []);
-      } catch (e) {
-        return;
-      }
+      const stops = await fetchNearbyBusStops(location.latitude, location.longitude);
+      setNearbyStops(stops);
     } catch (error) {
-      console.error("Error sending location:", error);
+      console.error("Error fetching bus stops:", error);
     }
   };
 
@@ -107,7 +113,7 @@ const LocationScreen = () => {
       ) : (
         <Text>{errorMsg || "Fetching location..."}</Text>
       )}
-      <Button title="Send Location" onPress={sendLocationToBackend} />
+      <Button title="Find Nearby Bus Stops" onPress={fetchStops} />
       {nearbyStops.length > 0 ? (
         <View>
           <Text>Nearby Stops:</Text>
