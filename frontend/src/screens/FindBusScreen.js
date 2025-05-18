@@ -1,7 +1,5 @@
 import React, { useState, useRef } from "react";
 import { View, Text, Button, StyleSheet, ScrollView, TextInput } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
-import polyline from "@mapbox/polyline";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 
@@ -80,16 +78,6 @@ const FindBusScreen = () => {
     }
   };
 
-  // Helper to decode polyline to coordinates
-  const getPolylineCoords = (overview_polyline) => {
-    if (!overview_polyline || !overview_polyline.points) return [];
-    return polyline.decode(overview_polyline.points).map(([latitude, longitude]) => ({
-      latitude,
-      longitude,
-    }));
-  };
-
-  // Get initial region for the map
   const getInitialRegion = (route) => {
     if (!route || !route.legs || !route.legs[0]) return null;
     const startLoc = route.legs[0].start_location;
@@ -101,11 +89,9 @@ const FindBusScreen = () => {
     };
   };
 
-  // Start journey navigation with audio
   const startJourney = async (route) => {
     setNavigating(true);
     setCurrentStep(0);
-    // Request location permissions
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
       setError("Location permission was denied.");
@@ -113,7 +99,6 @@ const FindBusScreen = () => {
       return;
     }
     const steps = route.legs[0].steps;
-    // Start watching location
     watchId.current = await Location.watchPositionAsync(
       { accuracy: Location.Accuracy.High, distanceInterval: 10 },
       (loc) => {
@@ -127,8 +112,7 @@ const FindBusScreen = () => {
             lat,
             lng
           );
-          if (distance < 40) { // 40 meters threshold
-            // Speak the instruction
+          if (distance < 40) {
             let instruction = "";
             if (step.travel_mode === "TRANSIT" && step.transit_details) {
               const td = step.transit_details;
@@ -147,7 +131,6 @@ const FindBusScreen = () => {
     );
   };
 
-  // Stop journey navigation
   const stopJourney = () => {
     setNavigating(false);
     setCurrentStep(0);
@@ -186,42 +169,36 @@ const FindBusScreen = () => {
       {loading && <Text style={styles.statusText}>Loading...</Text>}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {/* Show map for the first journey */}
-      {journeys.length > 0 && journeys[0].overview_polyline && (
+      {journeys.length > 0 && (
         <View style={{ height: 300, marginVertical: 20 }}>
           <MapView
             style={{ flex: 1 }}
+            provider="google"
             initialRegion={getInitialRegion(journeys[0])}
-            accessibilityLabel="Map showing the route for the first journey"
+            accessibilityLabel="Map showing the start and destination of the journey"
           >
-            <Polyline
-              coordinates={getPolylineCoords(journeys[0].overview_polyline)}
-              strokeColor="#007AFF"
-              strokeWidth={4}
-            />
-            {/* Start marker */}
             <Marker
               coordinate={{
                 latitude: journeys[0].legs[0].start_location.lat,
                 longitude: journeys[0].legs[0].start_location.lng,
               }}
               title="Start"
+              color="blue"
               accessibilityLabel="Journey start location"
             />
-            {/* End marker */}
             <Marker
               coordinate={{
                 latitude: journeys[0].legs[0].end_location.lat,
                 longitude: journeys[0].legs[0].end_location.lng,
               }}
               title="Destination"
+              color="red"
               accessibilityLabel="Journey destination"
             />
           </MapView>
         </View>
       )}
 
-      {/* Start/Stop Journey Button */}
       {journeys.length > 0 && (
         <Button
           title={navigating ? "Stop Journey" : "Start Journey"}
@@ -233,7 +210,6 @@ const FindBusScreen = () => {
         />
       )}
 
-      {/* Show journey steps and Read Aloud button */}
       {journeys.length > 0 &&
         journeys.map((route, idx) => (
           <View
@@ -264,7 +240,6 @@ const FindBusScreen = () => {
                   </Text>
                 );
               } else {
-                // For walking or transfer steps
                 return (
                   <Text
                     key={sidx}

@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "seec",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -32,6 +33,6 @@
     "extra": {
       "visionApiKey": "AIzaSyAcJpo7n1UV4kE5gcjD7lqt0YCW8apik9c"
     },
-    "newArchEnabled": true
+    "jsEngine": "hermes"
   }
 }

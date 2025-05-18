@@ -1,218 +1,233 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Button, StyleSheet, Dimensions, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, Text, Button, StyleSheet, ScrollView, TextInput } from "react-native";
 import * as Location from "expo-location";
-import MapView, { Marker } from "react-native-maps";
-import * as Speech from 'expo-speech';
+import * as Speech from "expo-speech";
 
-// Fetch nearby bus stops from TransportAPI
-const fetchNearbyBusStops = async (latitude, longitude) => {
-  const app_id = "d0b31a43";
-  const app_key = "225da684f903d19c96310dcf0d305b5c";
-  const url = `https://transportapi.com/v3/uk/places.json?app_id=${app_id}&app_key=${app_key}&lat=${latitude}&lon=${longitude}&type=bus_stop`;
-
+// Fetch bus journey using Google Directions API (transit mode, bus only)
+const getBusJourney = async (origin, destination) => {
+  const apiKey = "AIzaSyArCo5izEub-54JZjKqsLW-qQTwWbkhiJo";
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(
+    origin
+  )}&destination=${encodeURIComponent(
+    destination
+  )}&mode=transit&transit_mode=bus&key=${apiKey}`;
   const response = await fetch(url);
   const data = await response.json();
-  // Each stop has an 'atcocode' (NaPTAN code), 'name', and coordinates
-  return data.member.map(stop => ({
-    stop_name: stop.name,
-    latitude: stop.latitude,
-    longitude: stop.longitude,
-    atcocode: stop.atcocode,
-  }));
+  return data;
 };
 
-const LocationScreen = () => {
-  const [location, setLocation] = useState(null);
-  const [address, setAddress] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [nearbyStops, setNearbyStops] = useState([]);
-  const [liveTimes, setLiveTimes] = useState(null);
-  const [selectedStop, setSelectedStop] = useState(null);
+// Read aloud the journey steps
+const speakJourney = (route) => {
+  let text = "";
+  route.legs[0].steps.forEach(step => {
+    if (step.travel_mode === "TRANSIT" && step.transit_details) {
+      const td = step.transit_details;
+      text += `Take bus ${td.line.short_name} from ${td.departure_stop.name} at ${td.departure_time.text}. Get off at ${td.arrival_stop.name} at ${td.arrival_time.text}. `;
+    } else {
+      text += step.html_instructions.replace(/<[^>]+>/g, "") + ` (${step.distance.text}). `;
+    }
+  });
+  text += `Arrival time: ${route.legs[0].arrival_time ? route.legs[0].arrival_time.text : "N/A"}.`;
+  Speech.speak(text);
+};
 
-  useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMsg("Location permission was denied.");
+// Haversine formula for distance between two lat/lon points (in meters)
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  function toRad(x) { return x * Math.PI / 180; }
+  const R = 6371e3; // meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+const FindBusScreen = () => {
+  const [start, setStart] = useState("");
+  const [destination, setDestination] = useState("");
+  const [journeys, setJourneys] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const watchId = useRef(null);
+
+  const handleFindBuses = async () => {
+    setError("");
+    setJourneys([]);
+    setLoading(true);
+    setNavigating(false);
+    setCurrentStep(0);
+    if (watchId.current) {
+      watchId.current.remove();
+      watchId.current = null;
+    }
+    try {
+      const data = await getBusJourney(start, destination);
+      setLoading(false);
+      if (data.status !== "OK" || !data.routes.length) {
+        setError("No bus journeys found.");
         return;
       }
-
-      let currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation.coords);
-
-      let addresses = await Location.reverseGeocodeAsync(currentLocation.coords);
-      if (addresses.length > 0) {
-        const addr = addresses[0];
-        setAddress(
-          `${addr.name ? addr.name + ", " : ""}${addr.street ? addr.street + ", " : ""}${addr.city ? addr.city + ", " : ""}${addr.region ? addr.region + ", " : ""}${addr.postalCode ? addr.postalCode + ", " : ""}${addr.country || ""}`
-        );
-      }
-    })();
-  }, []);
-
-  // Fetch nearby bus stops from TransportAPI
-  const fetchStops = async () => {
-    if (!location) return;
-    try {
-      const stops = await fetchNearbyBusStops(location.latitude, location.longitude);
-      setNearbyStops(stops);
-    } catch (error) {
-      console.error("Error fetching bus stops:", error);
+      setJourneys(data.routes);
+    } catch (err) {
+      setLoading(false);
+      setError("Could not find a bus journey.");
     }
   };
 
-  // Fetch live times for a selected stop
-  const fetchLiveTimes = async (stop) => {
-    setSelectedStop(stop);
-    setLiveTimes(null);
-    const app_id = "d0b31a43";
-    const app_key = "225da684f903d19c96310dcf0d305b5c";
-    const url = `https://transportapi.com/v3/uk/bus/stop/${stop.atcocode}/live.json?app_id=${app_id}&app_key=${app_key}&group=route&limit=5&nextbuses=yes`;
-
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setLiveTimes(data.departures);
-    } catch (error) {
-      setLiveTimes({ error: "Could not fetch live times." });
+  const startJourney = async (route) => {
+    setNavigating(true);
+    setCurrentStep(0);
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      setError("Location permission was denied.");
+      setNavigating(false);
+      return;
     }
-  };
-
-  const speakContent = () => {
-    let screenText = "Location Screen. ";
-    if (errorMsg) {
-      screenText += `Error: ${errorMsg}.`;
-    } else if (location) {
-      if (address) {
-        screenText += `Your approximate address is ${address}. `;
-      }
-      if (nearbyStops.length > 0) {
-        screenText += "Nearby bus stops are: ";
-        nearbyStops.forEach((stop, index) => {
-          screenText += `${stop.stop_name}`;
-          if (index < nearbyStops.length - 1) {
-            screenText += ", ";
-          } else {
-            screenText += ". ";
+    const steps = route.legs[0].steps;
+    watchId.current = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.High, distanceInterval: 10 },
+      (loc) => {
+        if (!navigating) return;
+        if (currentStep < steps.length) {
+          const step = steps[currentStep];
+          const { lat, lng } = step.start_location;
+          const distance = getDistance(
+            loc.coords.latitude,
+            loc.coords.longitude,
+            lat,
+            lng
+          );
+          if (distance < 40) {
+            let instruction = "";
+            if (step.travel_mode === "TRANSIT" && step.transit_details) {
+              const td = step.transit_details;
+              instruction = `Take bus ${td.line.short_name} from ${td.departure_stop.name} at ${td.departure_time.text}. Get off at ${td.arrival_stop.name} at ${td.arrival_time.text}.`;
+            } else {
+              instruction = step.html_instructions.replace(/<[^>]+>/g, "") + ` (${step.distance.text})`;
+            }
+            Speech.speak(instruction);
+            setCurrentStep((prev) => prev + 1);
           }
-        });
-      } else {
-        screenText += "No nearby bus stops found.";
+        } else {
+          Speech.speak("You have arrived at your destination.");
+          stopJourney();
+        }
       }
-      screenText += "Press the Find Nearby Bus Stops button to update nearby stops.";
-    } else {
-      screenText += "Fetching your current location...";
+    );
+  };
+
+  const stopJourney = () => {
+    setNavigating(false);
+    setCurrentStep(0);
+    if (watchId.current) {
+      watchId.current.remove();
+      watchId.current = null;
     }
-    Speech.speak(screenText);
+    Speech.speak("Journey navigation stopped.");
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
-        <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>My Location</Text>
-        {location ? (
-          <>
-            {address && <Text accessibilityLabel={`Address: ${address}`}>Address: {address}</Text>}
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              region={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              accessibilityLabel="Map showing your current location and nearby bus stops"
-            >
-              {/* User location marker */}
-              <Marker
-                coordinate={{
-                  latitude: location.latitude,
-                  longitude: location.longitude,
-                }}
-                title="You are here"
-                description={address || ""}
-                pinColor="blue"
-                accessibilityLabel={`You are here at ${address || `latitude ${location.latitude}, longitude ${location.longitude}`}`}
-              />
-              {/* Nearby stops markers */}
-              {nearbyStops.map((stop, idx) => (
-                <Marker
-                  key={idx}
-                  coordinate={{
-                    latitude: stop.latitude,
-                    longitude: stop.longitude,
-                  }}
-                  title={stop.stop_name}
-                  pinColor="red"
-                  accessibilityLabel={`Nearby bus stop: ${stop.stop_name}`}
-                />
-              ))}
-            </MapView>
-          </>
-        ) : (
-          <Text accessibilityLabel={errorMsg || "Fetching location..."}>{errorMsg || "Fetching location..."}</Text>
-        )}
-        <Button title="Find Nearby Bus Stops" onPress={fetchStops} />
-        {nearbyStops.length > 0 ? (
-          <View>
-            <Text style={{ fontWeight: "bold" }}>Nearby Stops (tap for live times):</Text>
-            {nearbyStops.map((stop, idx) => (
-              <TouchableOpacity key={idx} onPress={() => fetchLiveTimes(stop)}>
-                <Text style={{ color: "blue" }}>
-                  {stop.stop_name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <Text accessibilityLabel="No nearby bus stops found.">No nearby stops found.</Text>
-        )}
-        {/* Show live times for the selected stop */}
-        {selectedStop && (
-          <View style={{ marginTop: 10 }}>
-            <Text style={{ fontWeight: "bold" }}>
-              Live Times for {selectedStop.stop_name}:
-            </Text>
-            {liveTimes && !liveTimes.error ? (
-              Object.keys(liveTimes).map(route =>
-                liveTimes[route].map((bus, idx) => (
-                  <Text key={idx}>
-                    {bus.line} to {bus.direction}: {bus.best_departure_estimate}
+    <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <Text style={styles.header} accessibilityRole="header">Find Bus Journeys</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Start location (address or postcode)"
+        value={start}
+        onChangeText={setStart}
+        accessibilityLabel="Enter your start location"
+        accessibilityRole="search"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Destination (address or postcode)"
+        value={destination}
+        onChangeText={setDestination}
+        accessibilityLabel="Enter your destination"
+        accessibilityRole="search"
+      />
+      <Button
+        title="Find Buses"
+        onPress={handleFindBuses}
+        accessibilityLabel="Find bus journeys"
+        accessibilityRole="button"
+      />
+      {loading && <Text style={styles.statusText}>Loading...</Text>}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {journeys.length > 0 && (
+        <Button
+          title={navigating ? "Stop Journey" : "Start Journey"}
+          onPress={() =>
+            navigating ? stopJourney() : startJourney(journeys[0])
+          }
+          color={navigating ? "#d9534f" : "#007AFF"}
+          accessibilityLabel={navigating ? "Stop journey navigation" : "Start journey navigation with audio"}
+        />
+      )}
+
+      {journeys.length > 0 &&
+        journeys.map((route, idx) => (
+          <View
+            key={idx}
+            style={styles.journeyBox}
+            accessible
+            accessibilityLabel={`Journey option ${idx + 1}`}
+          >
+            <Text style={styles.subheader}>Journey {idx + 1}:</Text>
+            <Button
+              title="Read Aloud"
+              onPress={() => speakJourney(route)}
+              accessibilityLabel="Read this journey aloud"
+              accessibilityRole="button"
+              color="#228B22"
+            />
+            {route.legs[0].steps.map((step, sidx) => {
+              if (step.travel_mode === "TRANSIT" && step.transit_details) {
+                const td = step.transit_details;
+                return (
+                  <Text
+                    key={sidx}
+                    style={styles.stepText}
+                    accessibilityLabel={`Take bus ${td.line.short_name} from ${td.departure_stop.name} at ${td.departure_time.text}. Get off at ${td.arrival_stop.name} at ${td.arrival_time.text}.`}
+                  >
+                    🚌 Take bus {td.line.short_name} from "{td.departure_stop.name}" at {td.departure_time.text}.{"\n"}
+                    Get off at "{td.arrival_stop.name}" at {td.arrival_time.text}.
                   </Text>
-                ))
-              )
-            ) : liveTimes && liveTimes.error ? (
-              <Text>{liveTimes.error}</Text>
-            ) : (
-              <Text>Loading...</Text>
-            )}
+                );
+              } else {
+                return (
+                  <Text
+                    key={sidx}
+                    style={styles.stepText}
+                    accessibilityLabel={step.html_instructions.replace(/<[^>]+>/g, "")}
+                  >
+                    🚶 {step.html_instructions.replace(/<[^>]+>/g, "")} ({step.distance.text})
+                  </Text>
+                );
+              }
+            })}
+            <Text style={styles.arrivalText}>
+              Arrival time: {route.legs[0].arrival_time ? route.legs[0].arrival_time.text : "N/A"}
+            </Text>
           </View>
-        )}
-        {/* Always show the Read Aloud button after the stops list */}
-        <View style={{ marginVertical: 20 }}>
-          <Button
-            title="Read Aloud"
-            onPress={speakContent}
-            accessibilityLabel="Read the contents of this page aloud"
-          />
-        </View>
-      </ScrollView>
-    </View>
+        ))}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  map: {
-    width: Dimensions.get("window").width,
-    height: 300,
-    marginVertical: 10,
-  },
+  header: { fontWeight: "bold", fontSize: 26, marginBottom: 14, color: "#222" },
+  subheader: { fontWeight: "bold", marginTop: 15, fontSize: 20, color: "#222" },
+  input: { borderWidth: 2, borderColor: "#222", padding: 12, marginVertical: 10, borderRadius: 7, fontSize: 18, backgroundColor: "#fff" },
+  journeyBox: { backgroundColor: "#fffbe6", padding: 14, marginVertical: 14, borderRadius: 10, borderColor: "#222", borderWidth: 1 },
+  stepText: { fontSize: 18, marginVertical: 4, color: "#222" },
+  arrivalText: { fontWeight: "bold", marginTop: 10, fontSize: 18, color: "#222" },
+  statusText: { fontSize: 18, color: "#222", marginVertical: 10 },
+  errorText: { color: "#b00020", fontSize: 18, marginVertical: 10 }
 });
 
-export default LocationScreen;
+export default FindBusScreen;
