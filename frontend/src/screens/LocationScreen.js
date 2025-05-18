@@ -1,29 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Button, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Button, StyleSheet, Dimensions, ScrollView, TouchableOpacity } from "react-native";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
-import ReactNativeTTS from 'react-native-tts';
+import * as Speech from 'expo-speech';
 
-// Function to fetch nearby bus stops from OpenStreetMap Overpass API
+// Fetch nearby bus stops from TransportAPI
 const fetchNearbyBusStops = async (latitude, longitude) => {
-  const radius = 500; // meters
-  const query = `
-    [out:json];
-    node
-      [highway=bus_stop]
-      (around:${radius},${latitude},${longitude});
-    out;
-  `;
-  const response = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(query)}`
-  });
+  const app_id = "d0b31a43";
+  const app_key = "225da684f903d19c96310dcf0d305b5c";
+  const url = `https://transportapi.com/v3/uk/places.json?app_id=${app_id}&app_key=${app_key}&lat=${latitude}&lon=${longitude}&type=bus_stop`;
+
+  const response = await fetch(url);
   const data = await response.json();
-  return data.elements.map(el => ({
-    stop_name: el.tags?.name || "Unnamed Stop",
-    latitude: el.lat,
-    longitude: el.lon
+  // Each stop has an 'atcocode' (NaPTAN code), 'name', and coordinates
+  return data.member.map(stop => ({
+    stop_name: stop.name,
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    atcocode: stop.atcocode,
   }));
 };
 
@@ -32,6 +26,8 @@ const LocationScreen = () => {
   const [address, setAddress] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [nearbyStops, setNearbyStops] = useState([]);
+  const [liveTimes, setLiveTimes] = useState(null);
+  const [selectedStop, setSelectedStop] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -54,7 +50,7 @@ const LocationScreen = () => {
     })();
   }, []);
 
-  // Fetch nearby bus stops from OpenStreetMap
+  // Fetch nearby bus stops from TransportAPI
   const fetchStops = async () => {
     if (!location) return;
     try {
@@ -65,19 +61,35 @@ const LocationScreen = () => {
     }
   };
 
+  // Fetch live times for a selected stop
+  const fetchLiveTimes = async (stop) => {
+    setSelectedStop(stop);
+    setLiveTimes(null);
+    const app_id = "d0b31a43";
+    const app_key = "225da684f903d19c96310dcf0d305b5c";
+    const url = `https://transportapi.com/v3/uk/bus/stop/${stop.atcocode}/live.json?app_id=${app_id}&app_key=${app_key}&group=route&limit=5&nextbuses=yes`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      setLiveTimes(data.departures);
+    } catch (error) {
+      setLiveTimes({ error: "Could not fetch live times." });
+    }
+  };
+
   const speakContent = () => {
     let screenText = "Location Screen. ";
     if (errorMsg) {
       screenText += `Error: ${errorMsg}.`;
     } else if (location) {
-      screenText += `Your current location is latitude ${location.latitude}, longitude ${location.longitude}. `;
       if (address) {
         screenText += `Your approximate address is ${address}. `;
       }
       if (nearbyStops.length > 0) {
         screenText += "Nearby bus stops are: ";
         nearbyStops.forEach((stop, index) => {
-          screenText += `${stop.stop_name} at latitude ${stop.latitude}, longitude ${stop.longitude}`;
+          screenText += `${stop.stop_name}`;
           if (index < nearbyStops.length - 1) {
             screenText += ", ";
           } else {
@@ -87,88 +99,110 @@ const LocationScreen = () => {
       } else {
         screenText += "No nearby bus stops found.";
       }
-      screenText += "Press the Send Location button to update nearby stops.";
+      screenText += "Press the Find Nearby Bus Stops button to update nearby stops.";
     } else {
       screenText += "Fetching your current location...";
     }
-    ReactNativeTTS.speak(screenText);
+    Speech.speak(screenText);
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>My Location</Text>
-      {location ? (
-        <>
-          <Text accessibilityLabel={`Latitude: ${location.latitude}`}>Latitude: {location.latitude}</Text>
-          <Text accessibilityLabel={`Longitude: ${location.longitude}`}>Longitude: {location.longitude}</Text>
-          {address && <Text accessibilityLabel={`Address: ${address}`}>Address: {address}</Text>}
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            region={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            accessibilityLabel="Map showing your current location and nearby bus stops"
-          >
-            {/* User location marker */}
-            <Marker
-              coordinate={{
+      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+        <Text style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>My Location</Text>
+        {location ? (
+          <>
+            {address && <Text accessibilityLabel={`Address: ${address}`}>Address: {address}</Text>}
+            <MapView
+              style={styles.map}
+              initialRegion={{
                 latitude: location.latitude,
                 longitude: location.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
               }}
-              title="You are here"
-              description={address || ""}
-              pinColor="blue"
-              accessibilityLabel={`You are here at ${address || `latitude ${location.latitude}, longitude ${location.longitude}`}`}
-            />
-            {/* Nearby stops markers */}
-            {nearbyStops.map((stop, idx) => (
+              region={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              accessibilityLabel="Map showing your current location and nearby bus stops"
+            >
+              {/* User location marker */}
               <Marker
-                key={idx}
                 coordinate={{
-                  latitude: stop.latitude,
-                  longitude: stop.longitude,
+                  latitude: location.latitude,
+                  longitude: location.longitude,
                 }}
-                title={stop.stop_name}
-                pinColor="red"
-                accessibilityLabel={`Nearby bus stop: ${stop.stop_name} at latitude ${stop.latitude}, longitude ${stop.longitude}`}
+                title="You are here"
+                description={address || ""}
+                pinColor="blue"
+                accessibilityLabel={`You are here at ${address || `latitude ${location.latitude}, longitude ${location.longitude}`}`}
               />
+              {/* Nearby stops markers */}
+              {nearbyStops.map((stop, idx) => (
+                <Marker
+                  key={idx}
+                  coordinate={{
+                    latitude: stop.latitude,
+                    longitude: stop.longitude,
+                  }}
+                  title={stop.stop_name}
+                  pinColor="red"
+                  accessibilityLabel={`Nearby bus stop: ${stop.stop_name}`}
+                />
+              ))}
+            </MapView>
+          </>
+        ) : (
+          <Text accessibilityLabel={errorMsg || "Fetching location..."}>{errorMsg || "Fetching location..."}</Text>
+        )}
+        <Button title="Find Nearby Bus Stops" onPress={fetchStops} />
+        {nearbyStops.length > 0 ? (
+          <View>
+            <Text style={{ fontWeight: "bold" }}>Nearby Stops (tap for live times):</Text>
+            {nearbyStops.map((stop, idx) => (
+              <TouchableOpacity key={idx} onPress={() => fetchLiveTimes(stop)}>
+                <Text style={{ color: "blue" }}>
+                  {stop.stop_name}
+                </Text>
+              </TouchableOpacity>
             ))}
-          </MapView>
-        </>
-      ) : (
-        <Text accessibilityLabel={errorMsg || "Fetching location..."}>{errorMsg || "Fetching location..."}</Text>
-      )}
-<<<<<<< HEAD
-      <Button title="Find Nearby Bus Stops" onPress={fetchStops} />
-=======
-      <Button title="Send Location" onPress={sendLocationToBackend} accessibilityLabel="Send your current location to find nearby bus stops" />
->>>>>>> 09e4755f66e260510ce18ae93554e5fe34e4e31f
-      {nearbyStops.length > 0 ? (
-        <View>
-          <Text style={{ fontWeight: "bold" }}>Nearby Stops:</Text>
-          {nearbyStops.map((stop, idx) => (
-            <Text key={idx} accessibilityLabel={`Nearby stop: ${stop.stop_name} at latitude ${stop.latitude}, longitude ${stop.longitude}`}>
-              {stop.stop_name} ({stop.latitude}, {stop.longitude})
+          </View>
+        ) : (
+          <Text accessibilityLabel="No nearby bus stops found.">No nearby stops found.</Text>
+        )}
+        {/* Show live times for the selected stop */}
+        {selectedStop && (
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ fontWeight: "bold" }}>
+              Live Times for {selectedStop.stop_name}:
             </Text>
-          ))}
+            {liveTimes && !liveTimes.error ? (
+              Object.keys(liveTimes).map(route =>
+                liveTimes[route].map((bus, idx) => (
+                  <Text key={idx}>
+                    {bus.line} to {bus.direction}: {bus.best_departure_estimate}
+                  </Text>
+                ))
+              )
+            ) : liveTimes && liveTimes.error ? (
+              <Text>{liveTimes.error}</Text>
+            ) : (
+              <Text>Loading...</Text>
+            )}
+          </View>
+        )}
+        {/* Always show the Read Aloud button after the stops list */}
+        <View style={{ marginVertical: 20 }}>
+          <Button
+            title="Read Aloud"
+            onPress={speakContent}
+            accessibilityLabel="Read the contents of this page aloud"
+          />
         </View>
-      ) : (
-        <Text accessibilityLabel="No nearby bus stops found.">No nearby stops found.</Text>
-      )}
-      <Button
-        title="Read Aloud"
-        onPress={speakContent}
-        accessibilityLabel="Read the contents of this page aloud"
-      />
+      </ScrollView>
     </View>
   );
 };

@@ -38,6 +38,7 @@ const LoginScreen = ({ navigation }) => {
             <Button title="Login" onPress={handleLogin} />
             <Text style={styles.message}>{message}</Text>
             <Button title="Go to Location Screen" onPress={() => navigation.navigate("Location")} />
+            <Button title="Find Bus" onPress={() => navigation.navigate("FindBus")} />
         </View>
     );
 };

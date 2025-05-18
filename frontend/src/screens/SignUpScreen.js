@@ -9,6 +9,8 @@ const SignUpScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [gdprConsent, setGdprConsent] = useState(false);
   const [message, setMessage] = useState('');
+  const consentStatus = gdprConsent ? 'accepted' : 'not accepted';
+  
 
   const handleSignUp = async () => {
     try {
