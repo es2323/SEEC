@@ -4,6 +4,7 @@ import * as Location from "expo-location";
 import * as Speech from "expo-speech";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import polyline from "@mapbox/polyline";
+import ZoomableView from "../components/ZoomableView";
 
 // Fetch bus journey using Google Directions API (transit mode, bus only)
 const getBusJourney = async (origin, destination) => {
@@ -180,137 +181,137 @@ const FindBusScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Text style={styles.header} accessibilityRole="header">Find Bus Journeys</Text>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <TextInput
-        style={[styles.input, { flex: 1 }]}
-        placeholder="Start location (address or postcode)"
-        value={start}
-        onChangeText={setStart}
-        accessibilityLabel="Enter your start location"
-        accessibilityRole="search"
-      />
-      
-    </View>
-    <Button
-        title="Use Current Location"
-        onPress={useCurrentLocation}
-        accessibilityLabel="Use your current location as the start"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Destination (address or postcode)"
-        value={destination}
-        onChangeText={setDestination}
-        accessibilityLabel="Enter your destination"
-        accessibilityRole="search"
-      />
-      <Button
-        title="Find Buses"
-        onPress={handleFindBuses}
-        accessibilityLabel="Find bus journeys"
-        accessibilityRole="button"
-      />
-      {loading && <Text style={styles.statusText}>Loading...</Text>}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {journeys.length > 0 && (
-        <View style={{ height: 300, marginVertical: 20 }}>
-          <MapView
-            style={{ flex: 1 }}
-            provider="google"
-            initialRegion={getInitialRegion(journeys[0])}
-            accessibilityLabel="Map showing the start and destination of the journey"
-          >
-            {/* Polyline for the route */}
-            {journeys[0].overview_polyline && (
-              <Polyline
-                coordinates={getPolylineCoords(journeys[0].overview_polyline)}
-                strokeColor="#007AFF"
-                strokeWidth={4}
-              />
-            )}
-            <Marker
-              coordinate={{
-                latitude: journeys[0].legs[0].start_location.lat,
-                longitude: journeys[0].legs[0].start_location.lng,
-              }}
-              title="Start"
-              color="blue"
-              accessibilityLabel="Journey start location"
-            />
-            <Marker
-              coordinate={{
-                latitude: journeys[0].legs[0].end_location.lat,
-                longitude: journeys[0].legs[0].end_location.lng,
-              }}
-              title="Destination"
-              color="red"
-              accessibilityLabel="Journey destination"
-            />
-          </MapView>
+    <ZoomableView style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <Text style={styles.header} accessibilityRole="header">Find Bus Journeys</Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Start location (address or postcode)"
+            value={start}
+            onChangeText={setStart}
+            accessibilityLabel="Enter your start location"
+            accessibilityRole="search"
+          />
         </View>
-      )}
-
-      {journeys.length > 0 && (
         <Button
-          title={navigating ? "Stop Journey" : "Start Journey"}
-          onPress={() =>
-            navigating ? stopJourney() : startJourney(journeys[0])
-          }
-          color={navigating ? "#d9534f" : "#007AFF"}
-          accessibilityLabel={navigating ? "Stop journey navigation" : "Start journey navigation with audio"}
+          title="Use Current Location"
+          onPress={useCurrentLocation}
+          accessibilityLabel="Use your current location as the start"
         />
-      )}
+        <TextInput
+          style={styles.input}
+          placeholder="Destination (address or postcode)"
+          value={destination}
+          onChangeText={setDestination}
+          accessibilityLabel="Enter your destination"
+          accessibilityRole="search"
+        />
+        <Button
+          title="Find Buses"
+          onPress={handleFindBuses}
+          accessibilityLabel="Find bus journeys"
+          accessibilityRole="button"
+        />
+        {loading && <Text style={styles.statusText}>Loading...</Text>}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {journeys.length > 0 &&
-        journeys.map((route, idx) => (
-          <View
-            key={idx}
-            style={styles.journeyBox}
-            accessible
-            accessibilityLabel={`Journey option ${idx + 1}`}
-          >
-            <Text style={styles.subheader}>Journey {idx + 1}:</Text>
-            <Button
-              title="Read Aloud"
-              onPress={() => speakJourney(route)}
-              accessibilityLabel="Read this journey aloud"
-              accessibilityRole="button"
-              color="#228B22"
-            />
-            {route.legs[0].steps.map((step, sidx) => {
-              if (step.travel_mode === "TRANSIT" && step.transit_details) {
-                const td = step.transit_details;
-                return (
-                  <Text
-                    key={sidx}
-                    style={styles.stepText}
-                    accessibilityLabel={`Take bus ${td.line.short_name} from ${td.departure_stop.name} at ${td.departure_time.text}. Get off at ${td.arrival_stop.name} at ${td.arrival_time.text}.`}
-                  >
-                    🚌 Take bus {td.line.short_name} from "{td.departure_stop.name}" at {td.departure_time.text}.{"\n"}
-                    Get off at "{td.arrival_stop.name}" at {td.arrival_time.text}.
-                  </Text>
-                );
-              } else {
-                return (
-                  <Text
-                    key={sidx}
-                    style={styles.stepText}
-                    accessibilityLabel={step.html_instructions.replace(/<[^>]+>/g, "")}
-                  >
-                    🚶 {step.html_instructions.replace(/<[^>]+>/g, "")} ({step.distance.text})
-                  </Text>
-                );
-              }
-            })}
-            <Text style={styles.arrivalText}>
-              Arrival time: {route.legs[0].arrival_time ? route.legs[0].arrival_time.text : "N/A"}
-            </Text>
+        {journeys.length > 0 && (
+          <View style={{ height: 300, marginVertical: 20 }}>
+            <MapView
+              style={{ flex: 1 }}
+              provider="google"
+              initialRegion={getInitialRegion(journeys[0])}
+              accessibilityLabel="Map showing the start and destination of the journey"
+            >
+              {journeys[0].overview_polyline && (
+                <Polyline
+                  coordinates={getPolylineCoords(journeys[0].overview_polyline)}
+                  strokeColor="#007AFF"
+                  strokeWidth={4}
+                />
+              )}
+              <Marker
+                coordinate={{
+                  latitude: journeys[0].legs[0].start_location.lat,
+                  longitude: journeys[0].legs[0].start_location.lng,
+                }}
+                title="Start"
+                color="blue"
+                accessibilityLabel="Journey start location"
+              />
+              <Marker
+                coordinate={{
+                  latitude: journeys[0].legs[0].end_location.lat,
+                  longitude: journeys[0].legs[0].end_location.lng,
+                }}
+                title="Destination"
+                color="red"
+                accessibilityLabel="Journey destination"
+              />
+            </MapView>
           </View>
-        ))}
-    </ScrollView>
+        )}
+
+        {journeys.length > 0 && (
+          <Button
+            title={navigating ? "Stop Journey" : "Start Journey"}
+            onPress={() =>
+              navigating ? stopJourney() : startJourney(journeys[0])
+            }
+            color={navigating ? "#d9534f" : "#007AFF"}
+            accessibilityLabel={navigating ? "Stop journey navigation" : "Start journey navigation with audio"}
+          />
+        )}
+
+        {journeys.length > 0 &&
+          journeys.map((route, idx) => (
+            <View
+              key={idx}
+              style={styles.journeyBox}
+              accessible
+              accessibilityLabel={`Journey option ${idx + 1}`}
+            >
+              <Text style={styles.subheader}>Journey {idx + 1}:</Text>
+              <Button
+                title="Read Aloud"
+                onPress={() => speakJourney(route)}
+                accessibilityLabel="Read this journey aloud"
+                accessibilityRole="button"
+                color="#228B22"
+              />
+              {route.legs[0].steps.map((step, sidx) => {
+                if (step.travel_mode === "TRANSIT" && step.transit_details) {
+                  const td = step.transit_details;
+                  return (
+                    <Text
+                      key={sidx}
+                      style={styles.stepText}
+                      accessibilityLabel={`Take bus ${td.line.short_name} from ${td.departure_stop.name} at ${td.departure_time.text}. Get off at ${td.arrival_stop.name} at ${td.arrival_time.text}.`}
+                    >
+                      🚌 Take bus {td.line.short_name} from "{td.departure_stop.name}" at {td.departure_time.text}.{"\n"}
+                      Get off at "{td.arrival_stop.name}" at {td.arrival_time.text}.
+                    </Text>
+                  );
+                } else {
+                  return (
+                    <Text
+                      key={sidx}
+                      style={styles.stepText}
+                      accessibilityLabel={step.html_instructions.replace(/<[^>]+>/g, "")}
+                    >
+                      🚶 {step.html_instructions.replace(/<[^>]+>/g, "")} ({step.distance.text})
+                    </Text>
+                  );
+                }
+              })}
+              <Text style={styles.arrivalText}>
+                Arrival time: {route.legs[0].arrival_time ? route.legs[0].arrival_time.text : "N/A"}
+              </Text>
+            </View>
+          ))}
+      </ScrollView>
+    </ZoomableView>
   );
 };
 

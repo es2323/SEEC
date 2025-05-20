@@ -1,40 +1,43 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import ZoomableView from '../components/ZoomableView';
 
 const MainMenuScreen = () => {
   const navigation = useNavigation();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>SEEC</Text>
-      <Text style={styles.subtitle}>
-        Smart, accessible travel: Find buses, get spoken directions, and more.
-      </Text>
-      <View style={styles.menu}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('FindBus')}
-          accessibilityLabel="Navigate to Find Bus screen"
-        >
-          <Text style={styles.menuButtonText}>🚌 Find Bus</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('ImageToSpeech')}
-          accessibilityLabel="Navigate to Image to Speech screen"
-        >
-          <Text style={styles.menuButtonText}>🖼️ Image to Speech</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('Location')}
-          accessibilityLabel="Navigate to Location screen"
-        >
-          <Text style={styles.menuButtonText}>📍 Location</Text>
-        </TouchableOpacity>
+    <ZoomableView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <Text style={styles.title}>SEEC</Text>
+        <Text style={styles.subtitle}>
+          Smart, accessible travel: Find buses, get spoken directions, and more.
+        </Text>
+        <View style={styles.menu}>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => navigation.navigate('FindBus')}
+            accessibilityLabel="Navigate to Find Bus screen"
+          >
+            <Text style={styles.menuButtonText}>🚌 Find Bus</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => navigation.navigate('ImageToSpeech')}
+            accessibilityLabel="Navigate to Image to Speech screen"
+          >
+            <Text style={styles.menuButtonText}>🖼️ Image to Speech</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => navigation.navigate('Location')}
+            accessibilityLabel="Navigate to Location screen"
+          >
+            <Text style={styles.menuButtonText}>📍 Location</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </ZoomableView>
   );
 };
 
