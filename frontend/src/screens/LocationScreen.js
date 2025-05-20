@@ -3,6 +3,7 @@ import { View, Text, Button, StyleSheet, Dimensions, ScrollView, TouchableOpacit
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import * as Speech from "expo-speech";
+import { Audio } from "expo-av";
 
 // Fetch bus stops from TransportAPI
 const fetchNearbyBusStops = async (latitude, longitude) => {
