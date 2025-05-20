@@ -1,7 +1,8 @@
 import React, { useState, useRef } from "react";
-import { View, Text, Button, StyleSheet, ScrollView, TextInput } from "react-native";
+import { View, Text, Button, StyleSheet, ScrollView, TextInput, TouchableOpacity } from "react-native";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
+import { Audio } from "expo-av";
 
 // Fetch bus journey using Google Directions API (transit mode, bus only)
 const getBusJourney = async (origin, destination) => {
@@ -52,8 +53,56 @@ const FindBusScreen = () => {
   const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingFor, setRecordingFor] = useState(null); // 'start' or 'destination'
   const watchId = useRef(null);
+  const recording = useRef(null);
 
+  // New speech-to-text functions
+  const startRecording = async (forField) => {
+    try {
+      setRecordingFor(forField);
+      setIsRecording(true);
+      
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+      
+      recording.current = new Audio.Recording();
+      await recording.current.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.current.startAsync();
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      setIsRecording(false);
+      setRecordingFor(null);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      setIsRecording(false);
+      
+      if (!recording.current) return;
+      
+      await recording.current.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+      });
+      
+      // In a real app, you would send the recording to a speech recognition service here
+      // For demo purposes, we'll simulate it with a prompt
+      alert("In a real app, this would send the recording to a speech recognition service. For now, please type your location.");
+      
+      recording.current = null;
+      setRecordingFor(null);
+    } catch (err) {
+      console.error('Failed to stop recording', err);
+    }
+  };
+
+  // All your existing functions remain exactly the same
   const handleFindBuses = async () => {
     setError("");
     setJourneys([]);
@@ -133,22 +182,45 @@ const FindBusScreen = () => {
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
       <Text style={styles.header} accessibilityRole="header">Find Bus Journeys</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Start location (address or postcode)"
-        value={start}
-        onChangeText={setStart}
-        accessibilityLabel="Enter your start location"
-        accessibilityRole="search"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Destination (address or postcode)"
-        value={destination}
-        onChangeText={setDestination}
-        accessibilityLabel="Enter your destination"
-        accessibilityRole="search"
-      />
+      
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Start location (address or postcode)"
+          value={start}
+          onChangeText={setStart}
+          accessibilityLabel="Enter your start location"
+          accessibilityRole="search"
+        />
+        <TouchableOpacity 
+          style={[styles.voiceButton, isRecording && recordingFor === 'start' && styles.voiceButtonActive]}
+          onPressIn={() => startRecording('start')}
+          onPressOut={stopRecording}
+          accessibilityLabel="Press and hold to speak start location"
+        >
+          <Text style={styles.voiceButtonText}>🎤</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Destination (address or postcode)"
+          value={destination}
+          onChangeText={setDestination}
+          accessibilityLabel="Enter your destination"
+          accessibilityRole="search"
+        />
+        <TouchableOpacity 
+          style={[styles.voiceButton, isRecording && recordingFor === 'destination' && styles.voiceButtonActive]}
+          onPressIn={() => startRecording('destination')}
+          onPressOut={stopRecording}
+          accessibilityLabel="Press and hold to speak destination"
+        >
+          <Text style={styles.voiceButtonText}>🎤</Text>
+        </TouchableOpacity>
+      </View>
+      
       <Button
         title="Find Buses"
         onPress={handleFindBuses}
@@ -222,12 +294,39 @@ const FindBusScreen = () => {
 const styles = StyleSheet.create({
   header: { fontWeight: "bold", fontSize: 26, marginBottom: 14, color: "#222" },
   subheader: { fontWeight: "bold", marginTop: 15, fontSize: 20, color: "#222" },
-  input: { borderWidth: 2, borderColor: "#222", padding: 12, marginVertical: 10, borderRadius: 7, fontSize: 18, backgroundColor: "#fff" },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  input: { 
+    flex: 1,
+    borderWidth: 2, 
+    borderColor: "#222", 
+    padding: 12, 
+    borderRadius: 7, 
+    fontSize: 18, 
+    backgroundColor: "#fff" 
+  },
   journeyBox: { backgroundColor: "#fffbe6", padding: 14, marginVertical: 14, borderRadius: 10, borderColor: "#222", borderWidth: 1 },
   stepText: { fontSize: 18, marginVertical: 4, color: "#222" },
   arrivalText: { fontWeight: "bold", marginTop: 10, fontSize: 18, color: "#222" },
   statusText: { fontSize: 18, color: "#222", marginVertical: 10 },
-  errorText: { color: "#b00020", fontSize: 18, marginVertical: 10 }
+  errorText: { color: "#b00020", fontSize: 18, marginVertical: 10 },
+  voiceButton: {
+    padding: 12,
+    marginLeft: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  voiceButtonActive: {
+    backgroundColor: '#ffcccc',
+  },
+  voiceButtonText: {
+    fontSize: 20,
+  },
 });
 
 export default FindBusScreen;
