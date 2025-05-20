@@ -65,6 +65,33 @@ const FindBusScreen = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const watchId = useRef(null);
 
+  // Use current location for start
+  const useCurrentLocation = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("Location permission was denied.");
+        setLoading(false);
+        return;
+      }
+      let location = await Location.getCurrentPositionAsync({});
+      let addresses = await Location.reverseGeocodeAsync(location.coords);
+      if (addresses.length > 0) {
+        const addr = addresses[0];
+        const addressString = `${addr.name ? addr.name + ", " : ""}${addr.street ? addr.street + ", " : ""}${addr.city ? addr.city + ", " : ""}${addr.region ? addr.region + ", " : ""}${addr.postalCode ? addr.postalCode + ", " : ""}${addr.country || ""}`;
+        setStart(addressString);
+      } else {
+        setError("Could not determine address from location.");
+      }
+      setLoading(false);
+    } catch (err) {
+      setError("Failed to get current location.");
+      setLoading(false);
+    }
+  };
+
   const handleFindBuses = async () => {
     setError("");
     setJourneys([]);
@@ -155,13 +182,21 @@ const FindBusScreen = () => {
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
       <Text style={styles.header} accessibilityRole="header">Find Bus Journeys</Text>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { flex: 1 }]}
         placeholder="Start location (address or postcode)"
         value={start}
         onChangeText={setStart}
         accessibilityLabel="Enter your start location"
         accessibilityRole="search"
+      />
+      
+    </View>
+    <Button
+        title="Use Current Location"
+        onPress={useCurrentLocation}
+        accessibilityLabel="Use your current location as the start"
       />
       <TextInput
         style={styles.input}
