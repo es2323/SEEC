@@ -2,6 +2,8 @@ import React, { useState, useRef } from "react";
 import { View, Text, Button, StyleSheet, ScrollView, TextInput } from "react-native";
 import * as Location from "expo-location";
 import * as Speech from "expo-speech";
+import MapView, { Marker, Polyline } from "react-native-maps";
+import polyline from "@mapbox/polyline";
 
 // Fetch bus journey using Google Directions API (transit mode, bus only)
 const getBusJourney = async (origin, destination) => {
@@ -42,6 +44,15 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
+};
+
+// Decode polyline to coordinates
+const getPolylineCoords = (overview_polyline) => {
+  if (!overview_polyline || !overview_polyline.points) return [];
+  return polyline.decode(overview_polyline.points).map(([latitude, longitude]) => ({
+    latitude,
+    longitude,
+  }));
 };
 
 const FindBusScreen = () => {
@@ -177,6 +188,14 @@ const FindBusScreen = () => {
             initialRegion={getInitialRegion(journeys[0])}
             accessibilityLabel="Map showing the start and destination of the journey"
           >
+            {/* Polyline for the route */}
+            {journeys[0].overview_polyline && (
+              <Polyline
+                coordinates={getPolylineCoords(journeys[0].overview_polyline)}
+                strokeColor="#007AFF"
+                strokeWidth={4}
+              />
+            )}
             <Marker
               coordinate={{
                 latitude: journeys[0].legs[0].start_location.lat,
