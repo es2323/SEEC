@@ -19,7 +19,7 @@ const MainMenuScreen = () => {
             onPress={() => navigation.navigate('FindBus')}
             accessibilityLabel="Navigate to Find Bus screen"
           >
-            <Text style={styles.menuButtonText}>🚌 Find Bus</Text>
+            <Text style={styles.menuButtonText}>🚌 Journey Planner</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuButton}
@@ -33,7 +33,7 @@ const MainMenuScreen = () => {
             onPress={() => navigation.navigate('Location')}
             accessibilityLabel="Navigate to Location screen"
           >
-            <Text style={styles.menuButtonText}>📍 Location</Text>
+            <Text style={styles.menuButtonText}>📍 Nearby Bus Stops</Text>
           </TouchableOpacity>
         </View>
       </View>
